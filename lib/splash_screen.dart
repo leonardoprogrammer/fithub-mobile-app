@@ -33,7 +33,7 @@ class _SplashScreenState extends State<SplashScreen> {
         WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => LoginPage()),
+            MaterialPageRoute(builder: (context) => const LoginPage()),
           );
         });
       }

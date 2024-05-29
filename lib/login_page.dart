@@ -109,7 +109,7 @@ class _LoginPageState extends State<LoginPage> {
                       // Armazena o status de login do usuário
                       await prefs.setBool('isLoggedIn', true);
 
-                      // Redireciona para a tela Home
+                      // Redireciona para o painel
                       Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(
