@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_masked_text2/flutter_masked_text2.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:intl/intl.dart';
+
+import 'package:fithub/panel_page.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -12,6 +17,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _birthDateController =
       MaskedTextController(mask: '00/00/0000');
+  String? _selectedGender;
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
@@ -20,6 +26,103 @@ class _RegisterPageState extends State<RegisterPage> {
   final _formKey = GlobalKey<FormState>();
   bool _termsAndConditions = false;
   bool _termsAndConditionsError = false;
+  bool _isLoading = false;
+
+  Future<void> _registerUser() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    final Uri url =
+        Uri.parse('http://100.96.1.2:8082/fithub-api/user/register');
+    final Map<String, String> headers = {'Content-Type': 'application/json'};
+
+    final String birthDateString = _birthDateController.text;
+    final DateTime birthDate = DateFormat('dd/MM/yyyy').parse(birthDateString);
+
+    final DateFormat formatter = DateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+    final String formattedDate = formatter.format(birthDate.toUtc());
+
+    String gender = '';
+    if (_selectedGender == 'Masculino' || _selectedGender == 'Feminino') {
+      gender = _selectedGender!;
+    }
+
+    final Map<String, dynamic> body = {
+      'name': _nameController.text,
+      'dateBirth': formattedDate,
+      'gender': gender,
+      'login': {
+        'email': _emailController.text,
+        'password': _passwordController.text,
+      },
+    };
+
+    try {
+      final response = await http.post(
+        url,
+        headers: headers,
+        body: json.encode(body),
+      );
+
+      if (response.statusCode == 201) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const PanelPage(),
+          ),
+        );
+      } else {
+        String errorMessage = 'Erro desconhecido';
+        try {
+          final responseData = json.decode(response.body);
+          if (responseData is Map && responseData.containsKey('message')) {
+            errorMessage = responseData['message'];
+          } else {
+            errorMessage = response.body;
+          }
+        } catch (e) {
+          errorMessage = response.body;
+        }
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Erro'),
+            content: Text('Erro: $errorMessage'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Erro'),
+          content: Text(
+              'Falha ao cadastrar. Por favor, tente novamente.\n\nDetalhes: $e'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -92,6 +195,31 @@ class _RegisterPageState extends State<RegisterPage> {
                       return 'E-mail inválido';
                     }
                     return null;
+                  },
+                ),
+                const SizedBox(height: 16.0),
+                DropdownButtonFormField<String>(
+                  value: _selectedGender,
+                  decoration: const InputDecoration(
+                    labelText: 'Gênero',
+                    border: OutlineInputBorder(),
+                    contentPadding:
+                        EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
+                  ),
+                  items: <String>[
+                    'Prefiro não informar',
+                    'Masculino',
+                    'Feminino'
+                  ].map<DropdownMenuItem<String>>((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    );
+                  }).toList(),
+                  onChanged: (newValue) {
+                    setState(() {
+                      _selectedGender = newValue;
+                    });
                   },
                 ),
                 const SizedBox(height: 16.0),
@@ -191,35 +319,37 @@ class _RegisterPageState extends State<RegisterPage> {
                 const SizedBox(height: 16.0),
                 const SizedBox(height: 16.0),
                 ElevatedButton(
-                  child: const Text('Cadastrar'),
-                  onPressed: () {
-                    if (_formKey.currentState != null &&
-                        _formKey.currentState!.validate()) {
-                      if (!_termsAndConditions) {
-                        setState(() {
-                          _termsAndConditionsError = true;
-                        });
-                        return;
-                      } else {
-                        setState(() {
-                          _termsAndConditionsError = false;
-                        });
-                      }
-                      
-                      String name = _nameController.text;
-                      String email = _emailController.text;
-                      String password = _passwordController.text;
+                  onPressed: _isLoading
+                      ? null
+                      : () async {
+                          if (_formKey.currentState != null &&
+                              _formKey.currentState!.validate()) {
+                            if (!_termsAndConditions) {
+                              setState(() {
+                                _termsAndConditionsError = true;
+                              });
+                              return;
+                            } else {
+                              setState(() {
+                                _termsAndConditionsError = false;
+                              });
+                            }
 
-                      // chamar endpoint "/register" da User Service API
-                      // esperar resposta com token
-                    } else {
-                      if (!_termsAndConditions) {
-                        setState(() {
-                          _termsAndConditionsError = true;
-                        });
-                      }
-                    }
-                  },
+                            await _registerUser();
+                          } else {
+                            if (!_termsAndConditions) {
+                              setState(() {
+                                _termsAndConditionsError = true;
+                              });
+                            }
+                          }
+                        },
+                  child: _isLoading
+                      ? const CircularProgressIndicator(
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.blue),
+                        )
+                      : const Text('Cadastrar'),
                 ),
               ],
             ),
