@@ -347,7 +347,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   child: _isLoading
                       ? const CircularProgressIndicator(
                           valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.blue),
+                              AlwaysStoppedAnimation<Color>(Colors.white),
                         )
                       : const Text('Cadastrar'),
                 ),
